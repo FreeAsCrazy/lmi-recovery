@@ -8,7 +8,7 @@ on:
   workflow_call:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: orange-fox-lmi
@@ -121,3 +121,9 @@ jobs:
         path: dist/*.img
         if-no-files-found: error
         retention-days: 7
+    - name: 发布到 Releases
+      if: success()
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_TAG: fox16.0-lmi
+      run: bash "$GITHUB_WORKSPACE/.github/ci/publish-release.sh"

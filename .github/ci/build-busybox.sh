@@ -175,7 +175,7 @@ SEL_SRCS="avc.c avc_internal.c avc_sidtab.c booleans.c callbacks.c \
 canonicalize_context.c checkAccess.c check_context.c compute_av.c \
 compute_create.c compute_member.c context.c deny_unknown.c disable.c \
 enabled.c fgetfilecon.c freecon.c fsetfilecon.c get_initial_context.c \
-getenforce.c getfilecon.c getpeercon.c hashtab.c init.c label.c \
+getenforce.c getfilecon.c getpeercon.c hashtab.c init.c is_customizable_type.c label.c \
 label_backends_android.c label_file.c label_support.c lgetfilecon.c \
 load_policy.c lsetfilecon.c mapping.c matchpathcon.c policyvers.c \
 procattr.c regex.c reject_unknown.c selinux_internal.c selinux_config.c \
@@ -235,6 +235,20 @@ values = {
     "CONFIG_SEEDRNG": "y",
     "CONFIG_POWERTOP": "y",
     "CONFIG_FEATURE_POWERTOP_INTERACTIVE": "y",
+    # Extra applets selected on top of the topjohnwu+osm0sis union.
+    "CONFIG_GETSEBOOL": "y",
+    "CONFIG_SETSEBOOL": "y",
+    "CONFIG_HALT": "y",
+    "CONFIG_LFS": "y",
+    "CONFIG_READAHEAD": "y",
+    "CONFIG_RESTORECON": "y",
+    "CONFIG_SETFILES": "y",
+    "CONFIG_MATCHPATHCON": "y",
+    "CONFIG_BC": "y",
+    "CONFIG_TASKSET": "y",
+    "CONFIG_LOGGER": "y",
+    "CONFIG_NETCAT": "y",
+    "CONFIG_MINIPS": "y",
 }
 done = set()
 new = []
@@ -307,13 +321,15 @@ grep -A1 -i 'TLS' "$OUT/program-headers.txt" || true
 tls_align=$(awk '/TLS/{print $NF; exit}' "$OUT/program-headers.txt")
 [ "$tls_align" = "0x40" ] || die "TLS alignment is $tls_align, expected 0x40 (64)"
 applets=$(wc -l <"$OUT/applets.txt")
-[ "$applets" -eq 364 ] || die "applet count is $applets, expected 364"
-
+expected_applets=364
 if [ -f "$CI_DIR/busybox-applets.txt" ]; then
+    expected_applets=$(wc -l <"$CI_DIR/busybox-applets.txt")
     missing=$(comm -23 <(sort -u "$CI_DIR/busybox-applets.txt") \
         <(sort -u "$OUT/applets.txt"))
     [ -z "$missing" ] || die "missing applets: $missing"
 fi
+[ "$applets" -eq "$expected_applets" ] ||
+    die "applet count is $applets, expected $expected_applets"
 
 echo
 echo "BusyBox OK: $OUT/busybox"

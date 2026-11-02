@@ -13,6 +13,7 @@ base32
 base64
 basename
 bbconfig
+bc
 beep
 blkdiscard
 blkid
@@ -101,10 +102,12 @@ ftpput
 fuser
 getenforce
 getopt
+getsebool
 grep
 groups
 gunzip
 gzip
+halt
 hd
 hdparm
 head
@@ -146,6 +149,7 @@ link
 ln
 loadfont
 loadkmap
+logger
 logread
 losetup
 ls
@@ -162,10 +166,12 @@ lzopcat
 makedevs
 makemime
 man
+matchpathcon
 md5sum
 mesg
 microcom
 mim
+minips
 mkdir
 mkdosfs
 mke2fs
@@ -189,6 +195,7 @@ nanddump
 nandwrite
 nbd-client
 nc
+netcat
 netstat
 nice
 nl
@@ -225,6 +232,7 @@ pwdx
 raidautorun
 rdate
 rdev
+readahead
 readlink
 readprofile
 realpath
@@ -233,6 +241,7 @@ reformime
 renice
 reset
 resize
+restorecon
 resume
 rev
 rfkill
@@ -256,10 +265,12 @@ sestatus
 setconsole
 setenforce
 setfattr
+setfiles
 setfont
 setkeycodes
 setlogcons
 setpriv
+setsebool
 setserial
 setsid
 setuidgid
@@ -293,6 +304,7 @@ syslogd
 tac
 tail
 tar
+taskset
 tc
 tcpsvd
 tee
