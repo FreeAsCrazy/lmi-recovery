@@ -1,17 +1,28 @@
 # OrangeFox 16.0 build for Xiaomi lmi / lmipro.
-# 流程：准备工具链 -> repo sync（ci 裁剪）-> 设备树/补丁 -> ccache -> lunch/build -> 校验/上传。
+# 流程：选择分支 -> 准备工具链 -> repo sync（ci 裁剪）-> 设备树/补丁 -> ccache -> lunch/build -> 校验/上传。
 name: 编译 OrangeFox (lmi)
 run-name: 编译 OrangeFox 16.0 (lmi)
 
 on:
   workflow_dispatch:
+    inputs:
+      build_ref:
+        description: "要构建的设备树分支（留空则使用当前选择的分支）"
+        required: false
+        default: ""
   workflow_call:
+    inputs:
+      build_ref:
+        description: "要构建的设备树分支"
+        required: false
+        default: ""
+        type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: orange-fox-lmi
+  group: orange-fox-lmi-${{ inputs.build_ref || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -32,16 +43,29 @@ jobs:
       GOGC: '50'
       GODEBUG: madvdontneed=1
       LC_ALL: C
+      BUILD_REF: ${{ inputs.build_ref || github.ref_name }}
     steps:
     - name: 检出设备树
       uses: actions/checkout@v4
       with:
         repository: FreeAsCrazy/lmi-recovery
-        ref: main
+        ref: ${{ inputs.build_ref || github.ref_name }}
         fetch-depth: 1
         persist-credentials: false
     - name: 准备构建环境
       run: bash "$GITHUB_WORKSPACE/.github/ci/setup-env.sh"
+    - name: 构建 BusyBox 1.36.1
+      id: busybox
+      env:
+        BUSYBOX_BUILD_DIR: ${{ runner.temp }}/busybox-build
+      run: |
+        if [ -x "$GITHUB_WORKSPACE/.github/ci/build-busybox.sh" ]; then
+          bash "$GITHUB_WORKSPACE/.github/ci/build-busybox.sh"
+          echo "built=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "当前分支没有 BusyBox 构建脚本，跳过"
+          echo "built=false" >> "$GITHUB_OUTPUT"
+        fi
     - name: 同步 OrangeFox 16.0 源码
       run: bash "$GITHUB_WORKSPACE/.github/ci/sync-source.sh"
     - name: 放入设备树并应用补丁
@@ -53,6 +77,11 @@ jobs:
         rsync -a --exclude='.git' --exclude='.github' "$GITHUB_WORKSPACE/" "$DEST/"
         # 补丁脚本与补丁文件统一放在 .github/ci/ 下。
         bash "$GITHUB_WORKSPACE/.github/ci/apply-patches.sh"
+    - name: 集成 BusyBox 到 OrangeFox
+      if: steps.busybox.outputs.built == 'true'
+      env:
+        BUSYBOX_BIN: ${{ runner.temp }}/busybox-build/out/busybox
+      run: bash "$GITHUB_WORKSPACE/.github/ci/integrate-busybox.sh"
     - name: 恢复编译缓存 (ccache)
       uses: actions/cache/restore@v4
       with:
@@ -64,6 +93,21 @@ jobs:
       id: ccache
     - name: 编译 Recovery 镜像
       run: bash "$GITHUB_WORKSPACE/.github/ci/build-recovery.sh"
+    - name: 验证 BusyBox 已进入 Recovery
+      if: steps.busybox.outputs.built == 'true'
+      env:
+        BUSYBOX_BIN: ${{ runner.temp }}/busybox-build/out/busybox
+      run: bash "$GITHUB_WORKSPACE/.github/ci/verify-busybox.sh"
+    - name: 上传 BusyBox
+      if: success() && steps.busybox.outputs.built == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: BusyBox-1.36.1-aarch64
+        path: |
+          ${{ runner.temp }}/busybox-build/out/busybox
+          ${{ runner.temp }}/busybox-build/out/applets.txt
+        if-no-files-found: error
+        retention-days: 7
     - name: 检查 ccache 新增
       if: always() && !cancelled()
       id: ccache_new
@@ -101,3 +145,14 @@ jobs:
         path: dist/*.img
         if-no-files-found: error
         retention-days: 7
+    - name: 发布到 Releases
+      if: success()
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_TAG: fox16.0-lmi
+      run: |
+        if [ -x "$GITHUB_WORKSPACE/.github/ci/publish-release.sh" ]; then
+          bash "$GITHUB_WORKSPACE/.github/ci/publish-release.sh"
+        else
+          echo "当前分支没有 publish-release.sh，跳过 Releases 发布"
+        fi
