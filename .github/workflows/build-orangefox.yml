@@ -27,6 +27,8 @@ jobs:
       SWAP_GB: '24'
       FOX_DIR: /home/runner/fox_16.0
       FOX_MANIFEST: https://gitlab.com/OrangeFox/Manifest.git
+      BUSYBOX_BUILD_DIR: ${{ runner.temp }}/busybox-build
+      BUSYBOX_BIN: ${{ runner.temp }}/busybox-build/out/busybox
       ALLOW_MISSING_DEPENDENCIES: 'true'
       GOMEMLIMIT: 8GiB
       GOGC: '50'
@@ -42,6 +44,8 @@ jobs:
         persist-credentials: false
     - name: 准备构建环境
       run: bash "$GITHUB_WORKSPACE/.github/ci/setup-env.sh"
+    - name: 构建 BusyBox 1.36.1
+      run: bash "$GITHUB_WORKSPACE/.github/ci/build-busybox.sh"
     - name: 同步 OrangeFox 16.0 源码
       run: bash "$GITHUB_WORKSPACE/.github/ci/sync-source.sh"
     - name: 放入设备树并应用补丁
@@ -53,6 +57,8 @@ jobs:
         rsync -a --exclude='.git' --exclude='.github' "$GITHUB_WORKSPACE/" "$DEST/"
         # 补丁脚本与补丁文件统一放在 .github/ci/ 下。
         bash "$GITHUB_WORKSPACE/.github/ci/apply-patches.sh"
+    - name: 集成 BusyBox 到 OrangeFox
+      run: bash "$GITHUB_WORKSPACE/.github/ci/integrate-busybox.sh"
     - name: 恢复编译缓存 (ccache)
       uses: actions/cache/restore@v4
       with:
@@ -64,6 +70,18 @@ jobs:
       id: ccache
     - name: 编译 Recovery 镜像
       run: bash "$GITHUB_WORKSPACE/.github/ci/build-recovery.sh"
+    - name: 验证 BusyBox 已进入 Recovery
+      run: bash "$GITHUB_WORKSPACE/.github/ci/verify-busybox.sh"
+    - name: 上传 BusyBox
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: BusyBox-1.36.1-aarch64
+        path: |
+          ${{ env.BUSYBOX_BIN }}
+          ${{ env.BUSYBOX_BUILD_DIR }}/out/applets.txt
+        if-no-files-found: error
+        retention-days: 7
     - name: 检查 ccache 新增
       if: always() && !cancelled()
       id: ccache_new
