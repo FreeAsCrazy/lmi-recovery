@@ -267,7 +267,38 @@ make -C "$BB_DIR" -j"$JOBS" \
 [ -x "$BB_DIR/busybox" ] || die "BusyBox build did not produce busybox"
 install -m 0755 "$BB_DIR/busybox" "$OUT/busybox"
 install -m 0755 "$BB_DIR/busybox_unstripped" "$OUT/busybox_unstripped"
-"$OUT/busybox" --list >"$OUT/applets.txt"
+
+# The target binary cannot run on the x86_64 runner. Reconstruct the applet
+# list from BusyBox's generated include/applets.h instead.
+python3 - "$BB_DIR/include/applets.h" "$BB_DIR/.config" "$OUT/applets.txt" <<'PY'
+import re
+import sys
+
+applets_h, config, out = sys.argv[1:4]
+enabled = {}
+for line in open(config):
+    m = re.match(r'^(CONFIG_[A-Z0-9_]+)=(y|n)$', line.strip())
+    if m:
+        enabled[m.group(1)] = m.group(2) == 'y'
+
+applet_re = re.compile(
+    r'APPLET(?:_NOEXEC|_NOFORK|_ODDNAME|_SCRIPTED)?\(\s*([^,\s]+)')
+if_re = re.compile(r'^\s*IF_(NOT_)?([A-Z0-9_]+)\(')
+names = set()
+for line in open(applets_h):
+    m = applet_re.search(line)
+    im = if_re.match(line)
+    if not m or not im:
+        continue
+    neg = bool(im.group(1))
+    val = enabled.get('CONFIG_' + im.group(2), False)
+    if (not neg and val) or (neg and not val):
+        names.add(m.group(1).strip('"'))
+names.discard('busybox')
+with open(out, 'w') as f:
+    for name in sorted(names):
+        f.write(name + '\n')
+PY
 
 log "Verifying BusyBox"
 file "$OUT/busybox"

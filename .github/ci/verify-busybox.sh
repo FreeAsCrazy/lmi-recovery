@@ -15,12 +15,10 @@ fi
 
 echo "recovery busybox: $B"
 file "$B"
-n=$("$B" --list | wc -l)
-echo "applets: $n"
-[ "$n" -eq 364 ] || {
-    echo "unexpected applet count: $n" >&2
-    exit 1
-}
+case "$(file -b "$B")" in
+    *ARM\ aarch64*statically\ linked*) ;;
+    *) echo "not a static aarch64 binary" >&2; exit 1 ;;
+esac
 
 readelf -lW "$B" >"${TMPDIR:-/tmp}/lmi-busybox-headers.txt"
 tls_align=$(awk '/TLS/{print $NF; exit}' "${TMPDIR:-/tmp}/lmi-busybox-headers.txt")
@@ -29,6 +27,25 @@ echo "TLS alignment: $tls_align"
     echo "unexpected TLS alignment: $tls_align" >&2
     exit 1
 }
+
+# The target binary cannot be executed on the x86_64 runner. Check that every
+# expected applet name is embedded in the binary instead.
+EXPECTED=${BUSYBOX_APPLETS:-${GITHUB_WORKSPACE:-$PWD}/.github/ci/busybox-applets.txt}
+[ -f "$EXPECTED" ] || {
+    echo "expected applet list not found: $EXPECTED" >&2
+    exit 1
+}
+strings -n 1 "$B" >"${TMPDIR:-/tmp}/lmi-busybox-strings.txt"
+missing=0
+while IFS= read -r a; do
+    [ -n "$a" ] || continue
+    if ! grep -Fxq "$a" "${TMPDIR:-/tmp}/lmi-busybox-strings.txt"; then
+        echo "missing applet string: $a" >&2
+        missing=1
+    fi
+done <"$EXPECTED"
+[ "$missing" -eq 0 ] || exit 1
+echo "all $(wc -l <"$EXPECTED") expected applets present"
 
 # A few key applet symlinks should exist when OrangeFox's predefined list is present.
 for a in awk sed grep tar; do

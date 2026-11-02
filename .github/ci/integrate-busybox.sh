@@ -26,10 +26,13 @@ mkdir -p "$(dirname "$DEST")"
 install -m 0755 "$BUSYBOX_BIN" "$DEST"
 echo "installed: $DEST"
 file "$DEST"
-"$DEST" --list | wc -l
+case "$(file -b "$DEST")" in
+    *ARM\ aarch64*statically\ linked*) ;;
+    *) echo "not a static aarch64 BusyBox: $DEST" >&2; exit 1 ;;
+esac
 
 # Enable BusyBox only in the build copy. The source device tree stays untouched.
-sed -i -E 's/(export FOX_USE_BUSYBOX_BINARY=)0/\11/' "$DEVICE/vendorsetup.sh"
+sed -i -E 's/export FOX_USE_BUSYBOX_BINARY=0/export FOX_USE_BUSYBOX_BINARY=1/' "$DEVICE/vendorsetup.sh"
 grep -n 'FOX_USE_BUSYBOX_BINARY=' "$DEVICE/vendorsetup.sh"
 
 if [ ! -f "$VENDOR/Files/bbx_sel_applets.txt" ]; then
