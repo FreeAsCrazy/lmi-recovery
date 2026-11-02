@@ -5,7 +5,14 @@ set -euo pipefail
 
 : "${FOX_DIR:?FOX_DIR not set}"
 BUSYBOX_BIN=${BUSYBOX_BIN:-${RUNNER_TEMP:-/tmp}/busybox-build/out/busybox}
-VENDOR=$FOX_DIR/vendor/twrp
+# OrangeFox 16.0 uses vendor/recovery; older manifests use vendor/twrp.
+if [ -n "${FOX_VENDOR_PATH:-}" ]; then
+    VENDOR=$FOX_VENDOR_PATH
+elif [ -d "$FOX_DIR/vendor/recovery" ]; then
+    VENDOR=$FOX_DIR/vendor/recovery
+else
+    VENDOR=$FOX_DIR/vendor/twrp
+fi
 DEST=$VENDOR/prebuilt/arm64/busybox
 DEVICE=$FOX_DIR/device/xiaomi/lmi
 

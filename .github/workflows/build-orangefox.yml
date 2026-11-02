@@ -71,6 +71,8 @@ jobs:
     - name: 编译 Recovery 镜像
       run: bash "$GITHUB_WORKSPACE/.github/ci/build-recovery.sh"
     - name: 验证 BusyBox 已进入 Recovery
+      env:
+        BUSYBOX_BIN: ${{ runner.temp }}/busybox-build/out/busybox
       run: bash "$GITHUB_WORKSPACE/.github/ci/verify-busybox.sh"
     - name: 上传 BusyBox
       if: success()

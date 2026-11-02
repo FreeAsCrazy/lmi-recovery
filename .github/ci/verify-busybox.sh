@@ -20,6 +20,17 @@ case "$(file -b "$B")" in
     *) echo "not a static aarch64 binary" >&2; exit 1 ;;
 esac
 
+BUILT=${BUSYBOX_BIN:-${RUNNER_TEMP:-/tmp}/busybox-build/out/busybox}
+if [ -f "$BUILT" ]; then
+    cmp -s "$B" "$BUILT" || {
+        echo "recovery BusyBox differs from the freshly built binary: $B != $BUILT" >&2
+        exit 1
+    }
+    echo "recovery BusyBox matches freshly built binary"
+else
+    echo "warning: freshly built BusyBox not found for comparison: $BUILT" >&2
+fi
+
 readelf -lW "$B" >"${TMPDIR:-/tmp}/lmi-busybox-headers.txt"
 tls_align=$(awk '/TLS/{print $NF; exit}' "${TMPDIR:-/tmp}/lmi-busybox-headers.txt")
 echo "TLS alignment: $tls_align"
