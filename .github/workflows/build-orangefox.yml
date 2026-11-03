@@ -5,24 +5,13 @@ run-name: 编译 OrangeFox 16.0 (lmi)
 
 on:
   workflow_dispatch:
-    inputs:
-      build_ref:
-        description: "要构建的设备树分支（留空则使用当前选择的分支）"
-        required: false
-        default: ""
   workflow_call:
-    inputs:
-      build_ref:
-        description: "要构建的设备树分支"
-        required: false
-        default: ""
-        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: orange-fox-lmi-${{ inputs.build_ref || github.ref_name }}
+  group: orange-fox-lmi-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -43,13 +32,12 @@ jobs:
       GOGC: '50'
       GODEBUG: madvdontneed=1
       LC_ALL: C
-      BUILD_REF: ${{ inputs.build_ref || github.ref_name }}
     steps:
     - name: 检出设备树
       uses: actions/checkout@v4
       with:
         repository: FreeAsCrazy/lmi-recovery
-        ref: ${{ inputs.build_ref || github.ref_name }}
+        ref: ${{ github.ref_name }}
         fetch-depth: 1
         persist-credentials: false
     - name: 准备构建环境
